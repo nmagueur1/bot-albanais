@@ -142,8 +142,8 @@ module.exports = {
         const identiteRp   = interaction.fields.getTextInputValue('identite_rp');
         const questionsRp  = interaction.fields.getTextInputValue('questions_rp');
 
-        const rcChannel = await client.channels.fetch(config.channels.recrutement);
-        if (!rcChannel) return interaction.reply({ content: '❌ Salon de recrutement introuvable.', ephemeral: true });
+        const rcChannel = await client.channels.fetch(config.channels.candidatures);
+        if (!rcChannel) return interaction.reply({ content: '❌ Salon de candidatures introuvable.', ephemeral: true });
 
         const candidatureEmbed = new EmbedBuilder()
           .setColor(config.colors.primary)
