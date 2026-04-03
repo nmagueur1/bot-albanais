@@ -311,13 +311,13 @@ module.exports = {
 
         p3.addComponents(
           new ActionRowBuilder().addComponents(
-            new TextInputBuilder().setCustomId('motivations').setLabel('✍️ Vos motivations (3 lignes min.)').setStyle(TextInputStyle.Paragraph).setMinLength(150).setRequired(true)
+            new TextInputBuilder().setCustomId('motivations').setLabel('✍️ Vos motivations (3 lignes min.)').setStyle(TextInputStyle.Paragraph).setMinLength(50).setRequired(true)
           ),
           new ActionRowBuilder().addComponents(
-            new TextInputBuilder().setCustomId('pourquoi_vous').setLabel('✍️ Pourquoi vous ? (2 lignes min.)').setStyle(TextInputStyle.Paragraph).setMinLength(100).setRequired(true)
+            new TextInputBuilder().setCustomId('pourquoi_vous').setLabel('✍️ Pourquoi vous ? (2 lignes min.)').setStyle(TextInputStyle.Paragraph).setMinLength(35).setRequired(true)
           ),
           new ActionRowBuilder().addComponents(
-            new TextInputBuilder().setCustomId('pourquoi_berisha').setLabel('✍️ Pourquoi la Famiglia ? (2 lignes min.)').setStyle(TextInputStyle.Paragraph).setMinLength(100).setRequired(true)
+            new TextInputBuilder().setCustomId('pourquoi_berisha').setLabel('✍️ Pourquoi la Famiglia ? (2 lignes min.)').setStyle(TextInputStyle.Paragraph).setMinLength(35).setRequired(true)
           ),
         );
         return interaction.showModal(p3);

@@ -18,10 +18,10 @@ module.exports = {
       .addFields({
         name: '🇦🇱 Origines',
         value:
-          'La **Famiglia Berisha** tire ses racines des hautes terres d\'Albanie. ' +
-          'Fondée sur le **Kanun** – le code d\'honneur albanais ancestral – la famille s\'est bâtie dans le silence, ' +
-          'loin des lumières et des caméras.\n\n' +
-          'À une époque où la loi des hommes ne suffisait plus, les Berisha ont imposé la leur.',
+          'La Famiglia Berisha trouve ses racines en Albanie, créée par des membres ambitieux de la diaspora cherchant à bâtir une famille puissante, respectée et discrète.' +
+          'Là où d\'autres voyaient des obstacles, ses fondateurs voyaient des opportunités - et la volonté de les saisir.' +
+          'Très tôt, la Famiglia a combiné business légaux et opérations discrètes, s\'imposant progressivement dans le paysage local et dans la diaspora européenne.' +
+          'Chaque décision, chaque alliance, chaque risque était calculé avec la précision d\'un horloger.',
       })
       .setFooter({ text: config.footerText });
 
