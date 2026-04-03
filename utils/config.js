@@ -18,10 +18,16 @@ module.exports = {
     darkChat:     '1489232833313505290',
   },
 
+  // ── Catégories ────────────────────────────
+  categories: {
+    recrutement: '1489418708106346658',
+  },
+
   // ── Rôles ─────────────────────────────────
   roles: {
-    accesBot: '1489072771198750720',  // Peut utiliser les commandes du bot
-    berisha:  '1489061469416067283',  // Tous les membres de la famille
+    accesBot:   '1489072771198750720',  // Peut utiliser les commandes du bot
+    berisha:    '1489061469416067283',  // Tous les membres de la famille
+    recruteur:  '1489059560923725915',  // Accès aux tickets de recrutement
   },
 
   // ── Couleurs embed ────────────────────────
@@ -33,6 +39,9 @@ module.exports = {
     info:     0x3498DB,
     dark:     0x2C2F33,
   },
+
+  // ── Recrutement ───────────────────────────
+  minQuizScore: 3, // Score minimum sur 4 pour passer le quiz
 
   // ── Divers ────────────────────────────────
   footerText: 'Famiglia Berisha • Sistema',

@@ -1,4 +1,4 @@
-const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits, StringSelectMenuBuilder } = require('discord.js');
 const { sendLog } = require('../utils/logger');
 const { isAdmin, hasAccess, denyAccess } = require('../utils/permissions');
 const config = require('../utils/config');
@@ -6,7 +6,60 @@ const fs = require('fs');
 const path = require('path');
 
 // ─── Chemins des données ───────────────────
-const RC_PATH = path.join(__dirname, '../data/rc-status.json');
+const RC_PATH       = path.join(__dirname, '../data/rc-status.json');
+const BLACKLIST_PATH = path.join(__dirname, '../data/rc-blacklist.json');
+
+// ─── Sessions quiz (en mémoire) ────────────
+// quizSessions.get(userId) = { q1: 'correct'|'wrong', q2: ..., q3: ..., q4: ... }
+const quizSessions = new Map();
+
+// ─── Questions du quiz lore ────────────────
+const QUIZ_QUESTIONS = [
+  {
+    id: 'q1',
+    placeholder: 'Q1 – Quel est le symbole sacré de la Famiglia ?',
+    correct: 'aigle',
+    options: [
+      { label: "🦅 L'Aigle à deux têtes",  value: 'aigle' },
+      { label: '🐺 La Louve romaine',       value: 'louve' },
+      { label: '🐍 Le Serpent noir',        value: 'serpent' },
+      { label: '🦁 Le Lion de Shkodra',     value: 'lion' },
+    ],
+  },
+  {
+    id: 'q2',
+    placeholder: 'Q2 – À quelle époque la Famiglia est-elle arrivée en ville ?',
+    correct: 'annees90',
+    options: [
+      { label: '📅 Les années 90',       value: 'annees90' },
+      { label: '📅 Les années 70',       value: 'annees70' },
+      { label: '📅 Les années 2000',     value: 'annees2000' },
+      { label: '📅 Les années 80',       value: 'annees80' },
+    ],
+  },
+  {
+    id: 'q3',
+    placeholder: 'Q3 – Quel titre porte le Chef Suprême de la Famiglia ?',
+    correct: 'kry',
+    options: [
+      { label: '👑 Kry',     value: 'kry' },
+      { label: '🗡️ Kap',    value: 'kap' },
+      { label: '🧠 Kësh',   value: 'kesh' },
+      { label: '🤝 Nënkry', value: 'nenkry' },
+    ],
+  },
+  {
+    id: 'q4',
+    placeholder: "Q4 – D'où viennent les origines des Berisha ?",
+    correct: 'albanie',
+    options: [
+      { label: '🏔️ Albanie & Kosovo',       value: 'albanie' },
+      { label: '🌊 Sicile & Calabre',        value: 'sicile' },
+      { label: '🏙️ Serbie & Montenegro',    value: 'serbie' },
+      { label: '🏛️ Macédoine & Grèce',      value: 'macedoine' },
+    ],
+  },
+];
 
 module.exports = {
   name: 'interactionCreate',
@@ -41,9 +94,8 @@ module.exports = {
     // 2. BOUTONS
     // ═══════════════════════════════════════
     if (interaction.isButton()) {
-      // ── Bouton candidature ────────────────
+      // ── Bouton candidature → quiz lore ───────
       if (interaction.customId === 'open_candidature') {
-        // Vérification RC ouvert
         const rcStatus = JSON.parse(fs.readFileSync(RC_PATH, 'utf8'));
         if (!rcStatus.open) {
           return interaction.reply({
@@ -52,16 +104,138 @@ module.exports = {
           });
         }
 
+        // Vérification blacklist
+        const blacklist = JSON.parse(fs.readFileSync(BLACKLIST_PATH, 'utf8'));
+        if (blacklist.includes(interaction.user.id)) {
+          return interaction.reply({
+            content: '🚫 Ta candidature a déjà été **refusée définitivement**. Tu ne peux pas postuler à nouveau.',
+            ephemeral: true,
+          });
+        }
+
+        // Initialiser la session quiz pour cet utilisateur
+        quizSessions.set(interaction.user.id, {});
+
+        const quizEmbed = new EmbedBuilder()
+          .setColor(config.colors.primary)
+          .setTitle('📚 Test de Connaissance – Famiglia Berisha')
+          .setDescription(
+            'Avant de soumettre ta candidature, réponds aux **4 questions** ci-dessous.\n\n' +
+            'Elles nous permettent de vérifier que tu connais bien l\'histoire et les codes de la famille.\n\n' +
+            '> ⚠️ Réponds à toutes les questions avant de cliquer sur **Valider**.'
+          )
+          .setFooter({ text: config.footerText });
+
+        // Mélanger les options aléatoirement à chaque affichage
+        const quizRows = QUIZ_QUESTIONS.map((q) => {
+          const shuffled = [...q.options].sort(() => Math.random() - 0.5);
+          return new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+              .setCustomId(`quiz_${q.id}`)
+              .setPlaceholder(q.placeholder)
+              .addOptions(shuffled)
+          );
+        });
+
+        const validateRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('quiz_validate')
+            .setLabel('✅ Valider et continuer')
+            .setStyle(ButtonStyle.Primary)
+        );
+
+        quizRows.push(validateRow);
+        return interaction.reply({ embeds: [quizEmbed], components: quizRows, ephemeral: true });
+      }
+
+      // ── Bouton validation du quiz ─────────
+      if (interaction.customId === 'quiz_validate') {
+        const answers = quizSessions.get(interaction.user.id) || {};
+        const answered = QUIZ_QUESTIONS.filter(q => answers[q.id] !== undefined).length;
+
+        if (answered < QUIZ_QUESTIONS.length) {
+          return interaction.reply({
+            content: `⚠️ Tu n'as pas répondu à toutes les questions ! (**${answered}/${QUIZ_QUESTIONS.length}** répondues)`,
+            ephemeral: true,
+          });
+        }
+
+        // Calcul du score
+        const score = QUIZ_QUESTIONS.filter(q => answers[q.id] === q.correct).length;
+        const total = QUIZ_QUESTIONS.length;
+        quizSessions.delete(interaction.user.id);
+
+        // ── Refus automatique si score insuffisant ──
+        if (score < config.minQuizScore) {
+          // Ajout à la blacklist
+          const blacklist = JSON.parse(fs.readFileSync(BLACKLIST_PATH, 'utf8'));
+          if (!blacklist.includes(interaction.user.id)) {
+            blacklist.push(interaction.user.id);
+            fs.writeFileSync(BLACKLIST_PATH, JSON.stringify(blacklist, null, 2));
+          }
+
+          await sendLog(client, {
+            action: 'Candidature refusée – Score lore insuffisant',
+            user: interaction.user,
+            details: `Score : ${score}/${total} (minimum requis : ${config.minQuizScore}/${total})`,
+            color: config.colors.danger,
+          });
+
+          return interaction.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setColor(config.colors.danger)
+                .setTitle('❌ Candidature refusée')
+                .setDescription(
+                  `Tu as obtenu **${score}/${total}** au test de connaissance.\n\n` +
+                  'Le score minimum requis pour rejoindre la **Famiglia Berisha** est de ' +
+                  `**${config.minQuizScore}/${total}**.\n\n` +
+                  '> Lis attentivement le lore de la famille avant de postuler.\n\n' +
+                  '*Cette décision est définitive. Tu ne pourras pas soumettre de nouvelle candidature.*'
+                )
+                .setFooter({ text: config.footerText })
+                .setTimestamp(),
+            ],
+            ephemeral: true,
+          });
+        }
+
+        // Ouvrir le formulaire de candidature avec le score encodé dans le customId
         const modal = new ModalBuilder()
-          .setCustomId('modal_candidature')
+          .setCustomId(`modal_candidature_${score}_${total}`)
           .setTitle('📝 Candidature – Famiglia Berisha');
 
         const fields = [
-          new TextInputBuilder().setCustomId('pseudo_hrp').setLabel('Pseudo HRP').setStyle(TextInputStyle.Short).setRequired(true),
-          new TextInputBuilder().setCustomId('age_hrp').setLabel('Âge HRP').setStyle(TextInputStyle.Short).setRequired(true),
-          new TextInputBuilder().setCustomId('dispos_hrp').setLabel('Disponibilités HRP (jours/heures)').setStyle(TextInputStyle.Short).setRequired(true),
-          new TextInputBuilder().setCustomId('identite_rp').setLabel('Nom & Prénom RP + Date de naissance').setStyle(TextInputStyle.Short).setRequired(true),
-          new TextInputBuilder().setCustomId('questions_rp').setLabel('Expérience, pourquoi Berisha, compétences ?').setStyle(TextInputStyle.Paragraph).setRequired(true),
+          new TextInputBuilder()
+            .setCustomId('identite_hrp')
+            .setLabel('Pseudo HRP & Âge HRP')
+            .setPlaceholder('Ex : Kali • 24 ans')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true),
+          new TextInputBuilder()
+            .setCustomId('identite_rp')
+            .setLabel('Identité RP (Nom, Prénom, Âge du personnage)')
+            .setPlaceholder('Ex : Arben Berisha • 31 ans')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true),
+          new TextInputBuilder()
+            .setCustomId('histoire_rp')
+            .setLabel("Ton histoire – D'où viens-tu ? Ton passé RP ?")
+            .setPlaceholder('Origine, parcours, ce que tu as vécu dans les rues...')
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true),
+          new TextInputBuilder()
+            .setCustomId('motivation_rp')
+            .setLabel('Pourquoi la Famiglia Berisha ?')
+            .setPlaceholder("Ce qui t'attire, ce que tu peux apporter à la famille...")
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true),
+          new TextInputBuilder()
+            .setCustomId('dispos_hrp')
+            .setLabel('Disponibilités HRP (jours & heures)')
+            .setPlaceholder('Ex : Lun-Ven 20h-00h, week-end variable')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true),
         ];
 
         modal.addComponents(fields.map((f) => new ActionRowBuilder().addComponents(f)));
@@ -100,6 +274,49 @@ module.exports = {
             ],
           });
 
+          // ── Création du ticket si accepté ──
+          if (accepted) {
+            const ticketChannel = await interaction.guild.channels.create({
+              name: `🎖️┃${targetUser.username}`,
+              type: ChannelType.GuildText,
+              parent: config.categories.recrutement,
+              permissionOverwrites: [
+                {
+                  id: interaction.guild.id,
+                  deny: [PermissionFlagsBits.ViewChannel],
+                },
+                {
+                  id: targetUser.id,
+                  allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+                },
+                {
+                  id: config.roles.recruteur,
+                  allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageMessages],
+                },
+              ],
+            });
+
+            const ticketEmbed = new EmbedBuilder()
+              .setColor(config.colors.success)
+              .setTitle('🎖️ Bienvenue dans la Famiglia Berisha')
+              .setDescription(
+                `Félicitations <@${targetUser.id}> !\n\n` +
+                'Ta candidature a été **acceptée**. Un recruteur va prendre contact avec toi ici pour la suite du processus.\n\n' +
+                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+                '▸ Reste disponible et patient\n' +
+                '▸ Ne partage aucune information de ce salon\n' +
+                '▸ Respecte les membres du staff\n\n' +
+                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+              )
+              .setFooter({ text: config.footerText })
+              .setTimestamp();
+
+            await ticketChannel.send({
+              content: `<@${targetUser.id}> <@&${config.roles.recruteur}>`,
+              embeds: [ticketEmbed],
+            });
+          }
+
           // Log
           await sendLog(client, {
             action: `Candidature ${accepted ? 'ACCEPTÉE' : 'REFUSÉE'}`,
@@ -108,7 +325,8 @@ module.exports = {
             color: accepted ? config.colors.success : config.colors.danger,
           });
         } catch (err) {
-          await interaction.reply({ content: '⚠️ Impossible d\'envoyer le DM à l\'utilisateur.', ephemeral: true });
+          console.error('[RC Accept/Refuse]', err);
+          await interaction.followUp({ content: '⚠️ Une erreur est survenue lors du traitement.', ephemeral: true });
         }
         return;
       }
@@ -131,16 +349,39 @@ module.exports = {
     }
 
     // ═══════════════════════════════════════
-    // 3. MODALS
+    // 3. SELECT MENUS (quiz lore)
+    // ═══════════════════════════════════════
+    if (interaction.isStringSelectMenu()) {
+      if (interaction.customId.startsWith('quiz_q')) {
+        const qId = interaction.customId.replace('quiz_', ''); // ex: 'q1'
+        const session = quizSessions.get(interaction.user.id) || {};
+        session[qId] = interaction.values[0];
+        quizSessions.set(interaction.user.id, session);
+        return interaction.deferUpdate();
+      }
+    }
+
+    // ═══════════════════════════════════════
+    // 4. MODALS
     // ═══════════════════════════════════════
     if (interaction.isModalSubmit()) {
       // ── Modal candidature ─────────────────
-      if (interaction.customId === 'modal_candidature') {
-        const pseudoHrp    = interaction.fields.getTextInputValue('pseudo_hrp');
-        const ageHrp       = interaction.fields.getTextInputValue('age_hrp');
-        const disposHrp    = interaction.fields.getTextInputValue('dispos_hrp');
+      if (interaction.customId.startsWith('modal_candidature_')) {
+        // Extraction du score depuis le customId (ex: modal_candidature_3_4)
+        const parts = interaction.customId.split('_');
+        const quizScore = parseInt(parts[2]);
+        const quizTotal = parseInt(parts[3]);
+        const scoreLabel = `${quizScore}/${quizTotal}`;
+        const scoreEmoji = quizScore === quizTotal ? '🏆' : quizScore >= quizTotal / 2 ? '✅' : '⚠️';
+
+        const identiteHrp  = interaction.fields.getTextInputValue('identite_hrp');
         const identiteRp   = interaction.fields.getTextInputValue('identite_rp');
-        const questionsRp  = interaction.fields.getTextInputValue('questions_rp');
+        const histoireRp   = interaction.fields.getTextInputValue('histoire_rp');
+        const motivationRp = interaction.fields.getTextInputValue('motivation_rp');
+        const disposHrp    = interaction.fields.getTextInputValue('dispos_hrp');
+
+        // Nettoyer la session quiz
+        quizSessions.delete(interaction.user.id);
 
         const rcChannel = await client.channels.fetch(config.channels.candidatures);
         if (!rcChannel) return interaction.reply({ content: '❌ Salon de candidatures introuvable.', ephemeral: true });
@@ -148,13 +389,14 @@ module.exports = {
         const candidatureEmbed = new EmbedBuilder()
           .setColor(config.colors.primary)
           .setTitle('📋 Nouvelle Candidature')
+          .setDescription(`Candidature soumise par <@${interaction.user.id}>`)
           .addFields(
-            { name: '👤 Pseudo HRP', value: pseudoHrp, inline: true },
-            { name: '🎂 Âge HRP', value: ageHrp, inline: true },
+            { name: '👤 Pseudo HRP & Âge HRP', value: identiteHrp, inline: true },
             { name: '🕐 Disponibilités', value: disposHrp, inline: true },
+            { name: `${scoreEmoji} Connaissance du lore`, value: `**${scoreLabel}**`, inline: true },
             { name: '🪪 Identité RP', value: identiteRp, inline: false },
-            { name: '📝 Questions RP', value: questionsRp, inline: false },
-            { name: '📨 Discord', value: `<@${interaction.user.id}>`, inline: true },
+            { name: '📖 Histoire & Passé RP', value: histoireRp, inline: false },
+            { name: '🔥 Motivation – Pourquoi la Famiglia ?', value: motivationRp, inline: false },
           )
           .setFooter({ text: config.footerText })
           .setTimestamp();
@@ -181,7 +423,7 @@ module.exports = {
         await sendLog(client, {
           action: 'Nouvelle candidature reçue',
           user: interaction.user,
-          details: `Pseudo HRP : ${pseudoHrp}`,
+          details: `Identité HRP : ${identiteHrp} • Lore : ${scoreLabel}`,
           color: config.colors.info,
         });
         return;
