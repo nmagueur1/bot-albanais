@@ -231,24 +231,27 @@ module.exports = {
       if (interaction.customId.startsWith('ticket_claim_')) {
         if (!interaction.member.roles.cache.has(config.roles.recruteur)) return denyAccess(interaction);
 
-        await interaction.message.edit({
+        const userId = interaction.customId.split('_')[2];
+        const existingEmbed = interaction.message.embeds[0];
+
+        const updatedEmbed = EmbedBuilder.from(existingEmbed)
+          .addFields({ name: '🙋 Pris en charge par', value: `<@${interaction.user.id}>`, inline: true });
+
+        await interaction.update({
+          embeds: [updatedEmbed],
           components: [
             new ActionRowBuilder().addComponents(
               new ButtonBuilder()
-                .setCustomId(`ticket_claim_${interaction.customId.split('_')[2]}`)
-                .setLabel(`✅ Pris en charge par ${interaction.user.username}`)
+                .setCustomId(`ticket_claim_${userId}`)
+                .setLabel(`✅ Pris en charge`)
                 .setStyle(ButtonStyle.Success)
                 .setDisabled(true),
               new ButtonBuilder()
-                .setCustomId(`ticket_close_${interaction.customId.split('_')[2]}`)
+                .setCustomId(`ticket_close_${userId}`)
                 .setLabel('🔒 Fermer le ticket')
                 .setStyle(ButtonStyle.Danger),
             ),
           ],
-        });
-
-        await interaction.reply({
-          content: `✅ <@${interaction.user.id}> prend en charge ce ticket.`,
         });
 
         await sendLog(client, {
