@@ -18,9 +18,9 @@ module.exports = {
       .addFields({
         name: '🇦🇱 Origines',
         value:
-          'La Famiglia Berisha trouve ses racines en Albanie, créée par des membres ambitieux de la diaspora cherchant à bâtir une famille puissante, respectée et discrète.' +
-          'Là où d\'autres voyaient des obstacles, ses fondateurs voyaient des opportunités - et la volonté de les saisir.' +
-          'Très tôt, la Famiglia a combiné business légaux et opérations discrètes, s\'imposant progressivement dans le paysage local et dans la diaspora européenne.' +
+          'La Famiglia Berisha trouve ses racines en Albanie, créée par des membres ambitieux de la diaspora cherchant à bâtir une famille puissante, respectée et discrète. \n' +
+          'Là où d\'autres voyaient des obstacles, ses fondateurs voyaient des opportunités - et la volonté de les saisir.\n\n' +
+          'Très tôt, la Famiglia a combiné business légaux et opérations discrètes, s\'imposant progressivement dans le paysage local et dans la diaspora européenne.\n' +
           'Chaque décision, chaque alliance, chaque risque était calculé avec la précision d\'un horloger.',
       })
       .setFooter({ text: config.footerText });
