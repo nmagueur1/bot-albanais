@@ -227,6 +227,49 @@ module.exports = {
         return interaction.showModal(p1);
       }
 
+      // ── Bouton passage page 2 ────────────
+      if (interaction.customId === 'rc_next_p2') {
+        const p2 = new ModalBuilder()
+          .setCustomId('modal_rc_p2')
+          .setTitle('📝 Candidature – Page 2/3');
+
+        p2.addComponents(
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('identite_rp').setLabel('🪪 Identité RP (Nom & Prénom)').setPlaceholder('Ex : Arben Berisha').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('naissance_rp').setLabel('🎂 Date de naissance RP').setPlaceholder('Ex : 15/06/1992').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('telephone').setLabel('📱 Numéro de téléphone RP').setPlaceholder('Ex : 555-1234').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('legal').setLabel('💼 Fais-tu du légal ? (Si oui, quoi ?)').setPlaceholder('Ex : Non / Oui – Mécanicien').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+        );
+        return interaction.showModal(p2);
+      }
+
+      // ── Bouton passage page 3 ────────────
+      if (interaction.customId === 'rc_next_p3') {
+        const p3 = new ModalBuilder()
+          .setCustomId('modal_rc_p3')
+          .setTitle('📝 Candidature – Page 3/3');
+
+        p3.addComponents(
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('motivations').setLabel('✍️ Vos motivations (3 lignes min.)').setStyle(TextInputStyle.Paragraph).setMinLength(150).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('pourquoi_vous').setLabel('✍️ Pourquoi vous ? (2 lignes min.)').setStyle(TextInputStyle.Paragraph).setMinLength(100).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('pourquoi_berisha').setLabel('✍️ Pourquoi la Famiglia ? (2 lignes min.)').setStyle(TextInputStyle.Paragraph).setMinLength(100).setRequired(true)
+          ),
+        );
+        return interaction.showModal(p3);
+      }
+
       // ── Boutons accept/refus candidature ─
       if (interaction.customId.startsWith('rc_accept_') || interaction.customId.startsWith('rc_refuse_')) {
         if (!isAdmin(interaction.member)) return denyAccess(interaction);
@@ -363,25 +406,22 @@ module.exports = {
         };
         candidatureSessions.set(interaction.user.id, session);
 
-        const p2 = new ModalBuilder()
-          .setCustomId('modal_rc_p2')
-          .setTitle('📝 Candidature – Page 2/3');
-
-        p2.addComponents(
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder().setCustomId('identite_rp').setLabel('🪪 Identité RP (Nom & Prénom)').setPlaceholder('Ex : Arben Berisha').setStyle(TextInputStyle.Short).setRequired(true)
-          ),
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder().setCustomId('naissance_rp').setLabel('🎂 Date de naissance RP').setPlaceholder('Ex : 15/06/1992').setStyle(TextInputStyle.Short).setRequired(true)
-          ),
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder().setCustomId('telephone').setLabel('📱 Numéro de téléphone RP').setPlaceholder('Ex : 555-1234').setStyle(TextInputStyle.Short).setRequired(true)
-          ),
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder().setCustomId('legal').setLabel('💼 Fais-tu du légal ? (Si oui, quoi ?)').setPlaceholder('Ex : Non / Oui – Mécanicien').setStyle(TextInputStyle.Short).setRequired(true)
-          ),
-        );
-        return interaction.showModal(p2);
+        // Discord ne permet pas d'ouvrir un modal depuis un modal → bouton intermédiaire
+        return interaction.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(config.colors.primary)
+              .setTitle('✅ Page 1/3 complète')
+              .setDescription('Clique sur le bouton ci-dessous pour passer à la **page 2/3**.')
+              .setFooter({ text: config.footerText }),
+          ],
+          components: [
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder().setCustomId('rc_next_p2').setLabel('➡️ Continuer – Page 2/3').setStyle(ButtonStyle.Primary)
+            ),
+          ],
+          ephemeral: true,
+        });
       }
 
       // ── Page 2/3 – Infos RP ──────────────
@@ -397,22 +437,22 @@ module.exports = {
         };
         candidatureSessions.set(interaction.user.id, session);
 
-        const p3 = new ModalBuilder()
-          .setCustomId('modal_rc_p3')
-          .setTitle('📝 Candidature – Page 3/3');
-
-        p3.addComponents(
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder().setCustomId('motivations').setLabel('✍️ Vos motivations (3 lignes min.)').setStyle(TextInputStyle.Paragraph).setMinLength(150).setRequired(true)
-          ),
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder().setCustomId('pourquoi_vous').setLabel('✍️ Pourquoi vous ? (2 lignes min.)').setStyle(TextInputStyle.Paragraph).setMinLength(100).setRequired(true)
-          ),
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder().setCustomId('pourquoi_berisha').setLabel('✍️ Pourquoi la Famiglia ? (2 lignes min.)').setStyle(TextInputStyle.Paragraph).setMinLength(100).setRequired(true)
-          ),
-        );
-        return interaction.showModal(p3);
+        // Bouton intermédiaire vers page 3
+        return interaction.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(config.colors.primary)
+              .setTitle('✅ Page 2/3 complète')
+              .setDescription('Clique sur le bouton ci-dessous pour passer à la **page 3/3**.')
+              .setFooter({ text: config.footerText }),
+          ],
+          components: [
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder().setCustomId('rc_next_p3').setLabel('➡️ Continuer – Page 3/3').setStyle(ButtonStyle.Primary)
+            ),
+          ],
+          ephemeral: true,
+        });
       }
 
       // ── Page 3/3 – Motivations → envoi ───
