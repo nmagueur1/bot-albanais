@@ -12,13 +12,13 @@ module.exports = {
       .setColor(config.colors.primary)
       .setTitle('📖 Histoire de la Famiglia Berisha')
       .setDescription(
-        '> *"Le sang qu\'on choisit vaut plus que celui qu\'on reçoit."*\n\n' +
+        '> *"Celui qui trahit sa famille se trahit lui-même."*\n\n' +
         '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
       )
       .addFields({
         name: '🇦🇱 Origines',
         value:
-          'La **Famiglia Berisha** tire ses racines des hautes terres d\'Albanie, des montagnes du Kosovo et des ruelles de Tirana. ' +
+          'La **Famiglia Berisha** tire ses racines des hautes terres d\'Albanie. ' +
           'Fondée sur le **Kanun** – le code d\'honneur albanais ancestral – la famille s\'est bâtie dans le silence, ' +
           'loin des lumières et des caméras.\n\n' +
           'À une époque où la loi des hommes ne suffisait plus, les Berisha ont imposé la leur.',

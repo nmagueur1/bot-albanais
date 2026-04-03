@@ -10,8 +10,11 @@ const RC_PATH       = path.join(__dirname, '../data/rc-status.json');
 const BLACKLIST_PATH = path.join(__dirname, '../data/rc-blacklist.json');
 
 // ─── Sessions quiz (en mémoire) ────────────
-// quizSessions.get(userId) = { q1: 'correct'|'wrong', q2: ..., q3: ..., q4: ... }
 const quizSessions = new Map();
+
+// ─── Sessions candidature multi-pages ──────
+// candidatureSessions.get(userId) = { quizScore, quizTotal, p1: {...}, p2: {...} }
+const candidatureSessions = new Map();
 
 // ─── Questions du quiz lore ────────────────
 const QUIZ_QUESTIONS = [
@@ -53,10 +56,10 @@ const QUIZ_QUESTIONS = [
     placeholder: "Q4 – D'où viennent les origines des Berisha ?",
     correct: 'albanie',
     options: [
-      { label: '🏔️ Albanie & Kosovo',       value: 'albanie' },
-      { label: '🌊 Sicile & Calabre',        value: 'sicile' },
-      { label: '🏙️ Serbie & Montenegro',    value: 'serbie' },
-      { label: '🏛️ Macédoine & Grèce',      value: 'macedoine' },
+      { label: '🇦🇱 Albanie',           value: 'albanie' },
+      { label: '🇽🇰 Kosovo',            value: 'kosovo' },
+      { label: '🇲🇰 Macédoine du Nord', value: 'macedoine' },
+      { label: '🇷🇸 Serbie',            value: 'serbie' },
     ],
   },
 ];
@@ -200,46 +203,28 @@ module.exports = {
           });
         }
 
-        // Ouvrir le formulaire de candidature avec le score encodé dans le customId
-        const modal = new ModalBuilder()
-          .setCustomId(`modal_candidature_${score}_${total}`)
-          .setTitle('📝 Candidature – Famiglia Berisha');
+        // Stocker le score du quiz et ouvrir la page 1 du formulaire
+        candidatureSessions.set(interaction.user.id, { quizScore: score, quizTotal: total });
 
-        const fields = [
-          new TextInputBuilder()
-            .setCustomId('identite_hrp')
-            .setLabel('Pseudo HRP & Âge HRP')
-            .setPlaceholder('Ex : Kali • 24 ans')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true),
-          new TextInputBuilder()
-            .setCustomId('identite_rp')
-            .setLabel('Identité RP (Nom, Prénom, Âge du personnage)')
-            .setPlaceholder('Ex : Arben Berisha • 31 ans')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true),
-          new TextInputBuilder()
-            .setCustomId('histoire_rp')
-            .setLabel("Ton histoire – D'où viens-tu ? Ton passé RP ?")
-            .setPlaceholder('Origine, parcours, ce que tu as vécu dans les rues...')
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true),
-          new TextInputBuilder()
-            .setCustomId('motivation_rp')
-            .setLabel('Pourquoi la Famiglia Berisha ?')
-            .setPlaceholder("Ce qui t'attire, ce que tu peux apporter à la famille...")
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true),
-          new TextInputBuilder()
-            .setCustomId('dispos_hrp')
-            .setLabel('Disponibilités HRP (jours & heures)')
-            .setPlaceholder('Ex : Lun-Ven 20h-00h, week-end variable')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true),
-        ];
+        const p1 = new ModalBuilder()
+          .setCustomId('modal_rc_p1')
+          .setTitle('📝 Candidature – Page 1/3');
 
-        modal.addComponents(fields.map((f) => new ActionRowBuilder().addComponents(f)));
-        return interaction.showModal(modal);
+        p1.addComponents(
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('pseudo_discord').setLabel('👤 Pseudo Discord').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('id_unique').setLabel('🆔 ID Unique').setPlaceholder('Ex : 123456789').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('naissance_hrp').setLabel('🎂 Date de naissance HRP').setPlaceholder('Ex : 01/01/2000').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('dispos_hrp').setLabel('🗓️ Disponibilités HRP').setPlaceholder('Ex : Lun-Ven 20h-00h, week-end variable').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+        );
+        return interaction.showModal(p1);
       }
 
       // ── Boutons accept/refus candidature ─
@@ -365,23 +350,85 @@ module.exports = {
     // 4. MODALS
     // ═══════════════════════════════════════
     if (interaction.isModalSubmit()) {
-      // ── Modal candidature ─────────────────
-      if (interaction.customId.startsWith('modal_candidature_')) {
-        // Extraction du score depuis le customId (ex: modal_candidature_3_4)
-        const parts = interaction.customId.split('_');
-        const quizScore = parseInt(parts[2]);
-        const quizTotal = parseInt(parts[3]);
+      // ── Page 1/3 – Infos HRP ─────────────
+      if (interaction.customId === 'modal_rc_p1') {
+        const session = candidatureSessions.get(interaction.user.id);
+        if (!session) return interaction.reply({ content: '❌ Session expirée. Recommence depuis le début.', ephemeral: true });
+
+        session.p1 = {
+          pseudoDiscord:  interaction.fields.getTextInputValue('pseudo_discord'),
+          idUnique:       interaction.fields.getTextInputValue('id_unique'),
+          naissanceHrp:   interaction.fields.getTextInputValue('naissance_hrp'),
+          disposHrp:      interaction.fields.getTextInputValue('dispos_hrp'),
+        };
+        candidatureSessions.set(interaction.user.id, session);
+
+        const p2 = new ModalBuilder()
+          .setCustomId('modal_rc_p2')
+          .setTitle('📝 Candidature – Page 2/3');
+
+        p2.addComponents(
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('identite_rp').setLabel('🪪 Identité RP (Nom & Prénom)').setPlaceholder('Ex : Arben Berisha').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('naissance_rp').setLabel('🎂 Date de naissance RP').setPlaceholder('Ex : 15/06/1992').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('telephone').setLabel('📱 Numéro de téléphone RP').setPlaceholder('Ex : 555-1234').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('legal').setLabel('💼 Fais-tu du légal ? (Si oui, quoi ?)').setPlaceholder('Ex : Non / Oui – Mécanicien').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+        );
+        return interaction.showModal(p2);
+      }
+
+      // ── Page 2/3 – Infos RP ──────────────
+      if (interaction.customId === 'modal_rc_p2') {
+        const session = candidatureSessions.get(interaction.user.id);
+        if (!session) return interaction.reply({ content: '❌ Session expirée. Recommence depuis le début.', ephemeral: true });
+
+        session.p2 = {
+          identiteRp:   interaction.fields.getTextInputValue('identite_rp'),
+          naissanceRp:  interaction.fields.getTextInputValue('naissance_rp'),
+          telephone:    interaction.fields.getTextInputValue('telephone'),
+          legal:        interaction.fields.getTextInputValue('legal'),
+        };
+        candidatureSessions.set(interaction.user.id, session);
+
+        const p3 = new ModalBuilder()
+          .setCustomId('modal_rc_p3')
+          .setTitle('📝 Candidature – Page 3/3');
+
+        p3.addComponents(
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('motivations').setLabel('✍️ Vos motivations (3 lignes min.)').setStyle(TextInputStyle.Paragraph).setMinLength(150).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('pourquoi_vous').setLabel('✍️ Pourquoi vous ? (2 lignes min.)').setStyle(TextInputStyle.Paragraph).setMinLength(100).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('pourquoi_berisha').setLabel('✍️ Pourquoi la Famiglia ? (2 lignes min.)').setStyle(TextInputStyle.Paragraph).setMinLength(100).setRequired(true)
+          ),
+        );
+        return interaction.showModal(p3);
+      }
+
+      // ── Page 3/3 – Motivations → envoi ───
+      if (interaction.customId === 'modal_rc_p3') {
+        const session = candidatureSessions.get(interaction.user.id);
+        if (!session) return interaction.reply({ content: '❌ Session expirée. Recommence depuis le début.', ephemeral: true });
+
+        const { quizScore, quizTotal, p1, p2 } = session;
         const scoreLabel = `${quizScore}/${quizTotal}`;
         const scoreEmoji = quizScore === quizTotal ? '🏆' : quizScore >= quizTotal / 2 ? '✅' : '⚠️';
 
-        const identiteHrp  = interaction.fields.getTextInputValue('identite_hrp');
-        const identiteRp   = interaction.fields.getTextInputValue('identite_rp');
-        const histoireRp   = interaction.fields.getTextInputValue('histoire_rp');
-        const motivationRp = interaction.fields.getTextInputValue('motivation_rp');
-        const disposHrp    = interaction.fields.getTextInputValue('dispos_hrp');
+        const motivations      = interaction.fields.getTextInputValue('motivations');
+        const pourquoiVous     = interaction.fields.getTextInputValue('pourquoi_vous');
+        const pourquoiBerisha  = interaction.fields.getTextInputValue('pourquoi_berisha');
 
-        // Nettoyer la session quiz
-        quizSessions.delete(interaction.user.id);
+        candidatureSessions.delete(interaction.user.id);
 
         const rcChannel = await client.channels.fetch(config.channels.candidatures);
         if (!rcChannel) return interaction.reply({ content: '❌ Salon de candidatures introuvable.', ephemeral: true });
@@ -391,12 +438,22 @@ module.exports = {
           .setTitle('📋 Nouvelle Candidature')
           .setDescription(`Candidature soumise par <@${interaction.user.id}>`)
           .addFields(
-            { name: '👤 Pseudo HRP & Âge HRP', value: identiteHrp, inline: true },
-            { name: '🕐 Disponibilités', value: disposHrp, inline: true },
-            { name: `${scoreEmoji} Connaissance du lore`, value: `**${scoreLabel}**`, inline: true },
-            { name: '🪪 Identité RP', value: identiteRp, inline: false },
-            { name: '📖 Histoire & Passé RP', value: histoireRp, inline: false },
-            { name: '🔥 Motivation – Pourquoi la Famiglia ?', value: motivationRp, inline: false },
+            // ── Page 1
+            { name: '👤 Pseudo Discord',             value: p1.pseudoDiscord,  inline: true },
+            { name: '🆔 ID Unique',                  value: p1.idUnique,       inline: true },
+            { name: `${scoreEmoji} Lore`,             value: `**${scoreLabel}**`, inline: true },
+            { name: '🎂 Naissance HRP',               value: p1.naissanceHrp,   inline: true },
+            { name: '🗓️ Disponibilités HRP',          value: p1.disposHrp,      inline: true },
+            { name: '\u200b',                          value: '\u200b',           inline: true },
+            // ── Page 2
+            { name: '🪪 Identité RP',                 value: p2.identiteRp,     inline: true },
+            { name: '🎂 Naissance RP',                value: p2.naissanceRp,    inline: true },
+            { name: '📱 Téléphone RP',                value: p2.telephone,      inline: true },
+            { name: '💼 Légal',                        value: p2.legal,          inline: false },
+            // ── Page 3
+            { name: '✍️ Motivations',                 value: motivations,       inline: false },
+            { name: '✍️ Pourquoi vous ?',             value: pourquoiVous,      inline: false },
+            { name: '✍️ Pourquoi la Famiglia ?',      value: pourquoiBerisha,   inline: false },
           )
           .setFooter({ text: config.footerText })
           .setTimestamp();
@@ -414,7 +471,6 @@ module.exports = {
 
         await rcChannel.send({ embeds: [candidatureEmbed], components: [actionRow] });
 
-        // Confirmation au candidat
         await interaction.reply({
           content: '📩 Ta candidature a bien été envoyée ! Tu recevras une réponse en DM prochainement.',
           ephemeral: true,
@@ -423,7 +479,7 @@ module.exports = {
         await sendLog(client, {
           action: 'Nouvelle candidature reçue',
           user: interaction.user,
-          details: `Identité HRP : ${identiteHrp} • Lore : ${scoreLabel}`,
+          details: `${p1.pseudoDiscord} • Lore : ${scoreLabel}`,
           color: config.colors.info,
         });
         return;
