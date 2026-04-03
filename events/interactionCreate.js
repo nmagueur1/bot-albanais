@@ -227,6 +227,56 @@ module.exports = {
         return interaction.showModal(p1);
       }
 
+      // ── Ticket : prendre en charge ────────
+      if (interaction.customId.startsWith('ticket_claim_')) {
+        if (!interaction.member.roles.cache.has(config.roles.recruteur)) return denyAccess(interaction);
+
+        await interaction.message.edit({
+          components: [
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`ticket_claim_${interaction.customId.split('_')[2]}`)
+                .setLabel(`✅ Pris en charge par ${interaction.user.username}`)
+                .setStyle(ButtonStyle.Success)
+                .setDisabled(true),
+              new ButtonBuilder()
+                .setCustomId(`ticket_close_${interaction.customId.split('_')[2]}`)
+                .setLabel('🔒 Fermer le ticket')
+                .setStyle(ButtonStyle.Danger),
+            ),
+          ],
+        });
+
+        await interaction.reply({
+          content: `✅ <@${interaction.user.id}> prend en charge ce ticket.`,
+        });
+
+        await sendLog(client, {
+          action: 'Ticket pris en charge',
+          user: interaction.user,
+          details: `Salon : ${interaction.channel.name}`,
+          color: config.colors.info,
+        });
+        return;
+      }
+
+      // ── Ticket : fermer ───────────────────
+      if (interaction.customId.startsWith('ticket_close_')) {
+        if (!interaction.member.roles.cache.has(config.roles.recruteur)) return denyAccess(interaction);
+
+        await interaction.reply({ content: '🔒 Fermeture du ticket dans 5 secondes...' });
+
+        await sendLog(client, {
+          action: 'Ticket fermé',
+          user: interaction.user,
+          details: `Salon : ${interaction.channel.name}`,
+          color: config.colors.warning,
+        });
+
+        setTimeout(() => interaction.channel.delete().catch(console.error), 5000);
+        return;
+      }
+
       // ── Bouton passage page 2 ────────────
       if (interaction.customId === 'rc_next_p2') {
         const p2 = new ModalBuilder()
@@ -339,9 +389,21 @@ module.exports = {
               .setFooter({ text: config.footerText })
               .setTimestamp();
 
+            const ticketButtons = new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`ticket_claim_${targetUser.id}`)
+                .setLabel('🙋 Prendre en charge')
+                .setStyle(ButtonStyle.Primary),
+              new ButtonBuilder()
+                .setCustomId(`ticket_close_${targetUser.id}`)
+                .setLabel('🔒 Fermer le ticket')
+                .setStyle(ButtonStyle.Danger),
+            );
+
             await ticketChannel.send({
               content: `<@${targetUser.id}> <@&${config.roles.recruteur}>`,
               embeds: [ticketEmbed],
+              components: [ticketButtons],
             });
           }
 
