@@ -50,15 +50,6 @@ module.exports = {
       .setColor(config.colors.primary)
       .addFields(
         {
-          name: '💼 Activités & Influence',
-          value:
-            'La famiglia opère dans plusieurs domaines :\n' +
-            '▸ **Commerce** – légal en façade, stratégique en coulisse\n' +
-            '▸ **Territoire** – contrôle de zones stratégiques de la ville\n' +
-            '▸ **Protection** – services discrets pour ceux qui savent où chercher\n' +
-            '▸ **Renseignement** – réseau d\'informateurs soigneusement entretenu',
-        },
-        {
           name: '⚖️ La Hiérarchie',
           value:
             '👑 **Kry** – Chef Suprême. Sa parole est loi.\n' +
