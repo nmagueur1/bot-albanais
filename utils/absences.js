@@ -20,21 +20,49 @@ function saveAbsencesData(data) {
 
 // ── Construction de l'embed panel ──────────
 function buildPanelEmbed(absences) {
+  const total    = absences ? absences.length : 0;
+  const statLine = total === 0
+    ? '`0` absence en cours'
+    : total === 1
+      ? '`1` absence en cours'
+      : `\`${total}\` absences en cours`;
+
   const embed = new EmbedBuilder()
     .setColor(config.colors.warning)
-    .setTitle('📋 Panel des Absences – Staff')
-    .setFooter({ text: config.footerText })
+    .setTitle('🗓️  Panel des Absences — Staff Famiglia Berisha')
+    .setDescription(
+      '> Ce panel est **mis à jour automatiquement** à chaque nouvelle déclaration.\n' +
+      '> Seul le staff peut consulter ce canal.\n\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      '**📌 Comment ça marche ?**\n' +
+      '▸ Un membre utilise `/absence` pour déclarer son absence\n' +
+      '▸ Un embed de notification est posté dans <#' + config.channels.absence + '>\n' +
+      '▸ Ce panel se met à jour automatiquement avec les nouvelles infos\n' +
+      '▸ Utilisez `/panel-absence` pour rafraîchir ou reposer ce panel\n\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+    )
+    .addFields({ name: '📊 Statut', value: statLine, inline: false })
+    .setFooter({ text: `${config.footerText} • Mis à jour` })
     .setTimestamp();
 
   if (!absences || absences.length === 0) {
-    embed.setDescription('✅ Aucune absence déclarée pour le moment.');
+    embed.addFields({
+      name: '✅ Aucune absence',
+      value: 'Tout le monde est présent pour le moment.',
+      inline: false,
+    });
   } else {
     const lines = absences.map((a, i) =>
-      `**${i + 1}.** ${a.prenom} ${a.nom} • <@${a.discordId}>\n` +
-      `╰ 🛫 Départ : \`${a.depart}\` → 🛬 Retour : \`${a.retour}\`\n` +
-      `╰ 📅 Déclaré le : \`${a.declaredAt}\` par <@${a.declaredBy}>`
+      `**${i + 1}.** 👤 **${a.prenom} ${a.nom}** • <@${a.discordId}>\n` +
+      `┣ 🛫 Départ : \`${a.depart}\`\n` +
+      `┣ 🛬 Retour : \`${a.retour}\`\n` +
+      `┗ 📝 Déclaré le \`${a.declaredAt}\` par <@${a.declaredBy}>`
     );
-    embed.setDescription(lines.join('\n\n'));
+    embed.addFields({
+      name: '📋 Absences déclarées',
+      value: lines.join('\n\n'),
+      inline: false,
+    });
   }
 
   return embed;
