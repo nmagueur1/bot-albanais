@@ -443,15 +443,68 @@ module.exports = {
     }
 
     // ═══════════════════════════════════════
-    // 3. SELECT MENUS (quiz lore)
+    // 3. SELECT MENUS
     // ═══════════════════════════════════════
     if (interaction.isStringSelectMenu()) {
+      // ── Quiz lore ─────────────────────────
       if (interaction.customId.startsWith('quiz_q')) {
-        const qId = interaction.customId.replace('quiz_', ''); // ex: 'q1'
+        const qId = interaction.customId.replace('quiz_', '');
         const session = quizSessions.get(interaction.user.id) || {};
         session[qId] = interaction.values[0];
         quizSessions.set(interaction.user.id, session);
         return interaction.deferUpdate();
+      }
+
+      // ── Suppression d'une absence ─────────
+      if (interaction.customId === 'remove_absence_select') {
+        if (!isAdmin(interaction.member)) return denyAccess(interaction);
+
+        const selectedId = parseInt(interaction.values[0], 10);
+        const data       = getAbsencesData();
+        const index      = data.absences.findIndex(a => a.id === selectedId);
+
+        if (index === -1) {
+          return interaction.update({
+            embeds: [
+              new EmbedBuilder()
+                .setColor(config.colors.danger)
+                .setTitle('❌ Absence introuvable')
+                .setDescription('Cette absence n\'existe plus ou a déjà été supprimée.')
+                .setFooter({ text: config.footerText }),
+            ],
+            components: [],
+          });
+        }
+
+        const removed = data.absences.splice(index, 1)[0];
+        saveAbsencesData(data);
+
+        // Mise à jour du panel
+        await updatePanel(client, data);
+
+        await interaction.update({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(config.colors.success)
+              .setTitle('✅ Absence supprimée')
+              .setDescription(`L'absence de **${removed.prenom} ${removed.nom}** a été retirée de la liste.`)
+              .addFields(
+                { name: '🛫 Départ',  value: removed.depart,  inline: true },
+                { name: '🛬 Retour',  value: removed.retour,  inline: true },
+              )
+              .setFooter({ text: config.footerText })
+              .setTimestamp(),
+          ],
+          components: [],
+        });
+
+        await sendLog(client, {
+          action: 'Absence supprimée',
+          user: interaction.user,
+          details: `${removed.prenom} ${removed.nom} (<@${removed.discordId}>) • ${removed.depart} → ${removed.retour}`,
+          color: config.colors.success,
+        });
+        return;
       }
     }
 
