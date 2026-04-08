@@ -2,6 +2,7 @@ const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowB
 const { sendLog } = require('../utils/logger');
 const { isAdmin, hasAccess, denyAccess } = require('../utils/permissions');
 const config = require('../utils/config');
+const { getAbsencesData, saveAbsencesData, updatePanel } = require('../utils/absences');
 const fs = require('fs');
 const path = require('path');
 
@@ -668,6 +669,66 @@ module.exports = {
         await terrainChannel.send({ embeds: [embed] });
         await interaction.reply({ content: `✅ Territoire **${nom}** ajouté !`, ephemeral: true });
         await sendLog(client, { action: 'Terrain ajouté', user: interaction.user, details: nom, color: config.colors.success });
+        return;
+      }
+
+      // ── Modal absence ─────────────────────
+      if (interaction.customId === 'modal_absence') {
+        const nom       = interaction.fields.getTextInputValue('absence_nom');
+        const prenom    = interaction.fields.getTextInputValue('absence_prenom');
+        const discordId = interaction.fields.getTextInputValue('absence_discord_id');
+        const depart    = interaction.fields.getTextInputValue('absence_depart');
+        const retour    = interaction.fields.getTextInputValue('absence_retour');
+
+        // ── Sauvegarde ──────────────────────
+        const data = getAbsencesData();
+        data.absences.push({
+          nom,
+          prenom,
+          discordId,
+          depart,
+          retour,
+          declaredBy: interaction.user.id,
+          declaredAt: new Date().toLocaleDateString('fr-FR'),
+          id: Date.now(),
+        });
+        saveAbsencesData(data);
+
+        // ── Notif dans le salon absence ─────
+        const absenceChannel = await client.channels.fetch(config.channels.absence);
+        if (absenceChannel) {
+          const notifEmbed = new EmbedBuilder()
+            .setColor(config.colors.warning)
+            .setTitle('📅 Nouvelle Absence Déclarée')
+            .addFields(
+              { name: '👤 Membre',       value: `${prenom} ${nom}`,      inline: true },
+              { name: '🔖 ID Discord',   value: `<@${discordId}>`,        inline: true },
+              { name: '\u200b',           value: '\u200b',                 inline: true },
+              { name: '🛫 Départ',       value: depart,                   inline: true },
+              { name: '🛬 Retour',       value: retour,                   inline: true },
+              { name: '\u200b',           value: '\u200b',                 inline: true },
+              { name: '📝 Déclaré par',  value: `<@${interaction.user.id}>`, inline: true },
+            )
+            .setFooter({ text: config.footerText })
+            .setTimestamp();
+
+          await absenceChannel.send({ embeds: [notifEmbed] });
+        }
+
+        // ── Mise à jour automatique du panel ─
+        await updatePanel(client, data);
+
+        await interaction.reply({
+          content: '✅ Ton absence a bien été enregistrée !',
+          ephemeral: true,
+        });
+
+        await sendLog(client, {
+          action: 'Absence déclarée',
+          user: interaction.user,
+          details: `${prenom} ${nom} (<@${discordId}>) • ${depart} → ${retour}`,
+          color: config.colors.warning,
+        });
         return;
       }
 
